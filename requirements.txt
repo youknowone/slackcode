@@ -1,0 +1,8 @@
+flask
+flask-actions
+requests
+redis
+pytest
+
+
+beautifulsoup4
