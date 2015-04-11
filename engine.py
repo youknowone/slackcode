@@ -59,7 +59,7 @@ ruby.name = 'ruby1.9'
 ruby.help = '<https://www.ruby-lang.org/ko/documentation/>'
 
 def aheui(code):
-    return run('../rpaheui/aheui-c', '-c', code, timeout=2)
+    return run('aheui', '-c', code, timeout=2)
 aheui.name = u'아희'
 aheui.help = u'<http://aheui.github.io/specification.ko/>'
 
@@ -97,6 +97,14 @@ def cpp11(code):
 cpp11.name = 'c++11'
 cpp11.help = '<http://ko.wikipedia.org/wiki/C%2B%2B11>'
 
+def rust(code):
+    codegen.render_rust(code)
+    out, err = run('rustc', '-o', 'rs.out', 'tmp.rs')
+    if err:
+        return out, err
+    return run('./rs.out')
+rust.name = 'rust'
+rust.help = '<http://www.rust-lang.org/>'
 
 def help(code):
     try:
@@ -130,6 +138,7 @@ u'아희': aheui,
 'cpp': cpp11,
 'c++11': cpp11,
 'c++14': cpp11,
+'rust': rust,
 'langhelp': help,
 u'언어도움': help,
 }

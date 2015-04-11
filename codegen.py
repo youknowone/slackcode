@@ -18,3 +18,9 @@ def render_cc(code):
     with open('tmp.cc', 'w') as f:
         f.write(rendered)
 
+def render_rust(code):
+    template = env.get_template('template.rs')
+    rendered = template.render(main='fn main' in code, code=Markup(code).unescape())
+    with open('tmp.rs', 'w') as f:
+        f.write(rendered)
+
