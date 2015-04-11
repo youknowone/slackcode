@@ -3,6 +3,7 @@
 import os
 import subprocess
 import threading
+import codegen
 
 class Process(object):
     def __init__(self, *args):
@@ -52,6 +53,11 @@ def python3(code):
 python3.name = 'python3.4'
 python3.help = '<https://docs.python.org/3/>'
 
+def ruby(code):
+    return run('ruby', '-e', code)
+ruby.name = 'ruby1.9'
+ruby.help = '<https://www.ruby-lang.org/ko/documentation/>'
+
 def aheui(code):
     return run('../rpaheui/aheui-c', '-c', code, timeout=2)
 aheui.name = u'아희'
@@ -68,6 +74,17 @@ def rot13(code):
         return '', 'invalid roman sentence'
 rot13.name = 'rot13'
 rot13.help = '<http://ko.wikipedia.org/wiki/ROT13>'
+
+def c99(code):
+    if '#include' in code:
+        return '', 'rejected'
+    codegen.render_c(code)
+    out, err = run('clang', '-std=c99', '-o', 'c.out', 'tmp.c')
+    if err:
+        return out, err
+    return run('./c.out')
+c99.name = 'c99'
+c99.help = '<http://ko.wikipedia.org/wiki/C99>'
 
 def help(code):
     try:
@@ -91,9 +108,12 @@ machines = {
 'python': python,
 'python2': python2,
 'python3': python3,
+'ruby': ruby,
 'aheui': aheui,
 u'아희': aheui,
 'rot13': rot13,
+'c': c99,
+'c99': c99,
 'langhelp': help,
 u'언어도움': help,
 }
