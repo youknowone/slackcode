@@ -86,6 +86,18 @@ def c99(code):
 c99.name = 'c99'
 c99.help = '<http://ko.wikipedia.org/wiki/C99>'
 
+def cpp11(code):
+    if '#include' in code:
+        return '', 'rejected'
+    codegen.render_cc(code)
+    out, err = run('clang++', '-std=c++1y', '-o', 'cc.out', 'tmp.cc')
+    if err:
+        return out, err
+    return run('./cc.out')
+cpp11.name = 'c++11'
+cpp11.help = '<http://ko.wikipedia.org/wiki/C%2B%2B11>'
+
+
 def help(code):
     try:
         machine = machines[code]
@@ -114,6 +126,10 @@ u'아희': aheui,
 'rot13': rot13,
 'c': c99,
 'c99': c99,
+'c++': cpp11,
+'cpp': cpp11,
+'c++11': cpp11,
+'c++14': cpp11,
 'langhelp': help,
 u'언어도움': help,
 }
