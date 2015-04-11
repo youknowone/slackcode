@@ -1,3 +1,5 @@
 .env
 _secret.py
 *.pyc
+*.out
+tmp.*

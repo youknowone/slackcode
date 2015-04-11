@@ -79,10 +79,10 @@ def c99(code):
     if '#include' in code:
         return '', 'rejected'
     codegen.render_c(code)
-    out, err = run('clang', '-std=c99', '-o', 'c.out', 'tmp.c')
+    out, err = run('clang', '-std=c99', '-o', 'tmp/c.out', 'tmp.c')
     if err:
         return out, err
-    return run('./c.out')
+    return run('tmp/c.out')
 c99.name = 'c99'
 c99.help = '<http://ko.wikipedia.org/wiki/C99>'
 
@@ -90,19 +90,19 @@ def cpp11(code):
     if '#include' in code:
         return '', 'rejected'
     codegen.render_cc(code)
-    out, err = run('clang++', '-std=c++1y', '-o', 'cc.out', 'tmp.cc')
+    out, err = run('clang++', '-std=c++1y', '-o', 'tmp/cc.out', 'tmp.cc')
     if err:
         return out, err
-    return run('./cc.out')
+    return run('tmp/cc.out')
 cpp11.name = 'c++11'
 cpp11.help = '<http://ko.wikipedia.org/wiki/C%2B%2B11>'
 
 def rust(code):
     codegen.render_rust(code)
-    out, err = run('rustc', '-o', 'rs.out', 'tmp.rs')
+    out, err = run('rustc', '-o', 'tmp/rs.out', 'tmp.rs')
     if err:
         return out, err
-    return run('./rs.out')
+    return run('tmp/rs.out')
 rust.name = 'rust'
 rust.help = '<http://www.rust-lang.org/>'
 
