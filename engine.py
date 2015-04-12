@@ -5,6 +5,9 @@ import subprocess
 import threading
 import codegen
 
+import redis
+rc = redis.StrictRedis()
+
 class Process(object):
     def __init__(self, *args):
         self.args = args
@@ -32,29 +35,29 @@ def run(*args, **kwargs):
     process = Process(*args)
     return process.run(timeout=timeout)
 
-def error(code):
+def error(code, *args):
     return '', ''
 error.name = 'error'
 
-def python2(code):
-    preset = 'import time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,sets,weakref,types,new,copy,pprint,repr,numbers,cmath,decimal,fractions,random,itertools,functools,operator,csv,hashlib,hmac,md5,sha,io,json,urllib,urllib2,httplib,gettext,locale,requests;\n'
+def python2(code, *args):
+    preset = 'import time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,sets,weakref,types,new,copy,pprint,repr,numbers,cmath,decimal,fractions,random,itertools,functools,operator,csv,hashlib,hmac,md5,sha,io,json,urllib,urllib2,httplib,gettext,locale,requests,sys; argc=len(sys.argv); argv=sys.argv; del sys;\n'
     if 'import' in code or 'exec' in code:
         return '', 'rejected'
-    return run('python', '-c', preset + code)
+    return run('python', '-c', preset + code, *args)
 python2.name = 'python2.7'
 python2.help = '<https://docs.python.org/2/>'
 python = python2
 
-def python3(code):
+def python3(code, *args):
     preset = 'import time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,weakref,types,copy,pprint,reprlib,enum,numbers,cmath,decimal,fractions,random,statistics,itertools,functools,operator,csv,hashlib,hmac,io,json,urllib,http,gettext,locale;\n'
     if 'import' in code or 'exec' in code:
         return '', 'rejected'
-    return run('python3', '-c', preset + code)
+    return run('python3', '-c', preset + code, *args)
 python3.name = 'python3.4'
 python3.help = '<https://docs.python.org/3/>'
 
-def ruby(code):
-    return run('ruby', '-e', code)
+def ruby(code, *args):
+    return run('ruby', '-e', code, *args)
 ruby.name = 'ruby1.9'
 ruby.help = '<https://www.ruby-lang.org/ko/documentation/>'
 
@@ -63,17 +66,9 @@ def aheui(code):
 aheui.name = u'아희'
 aheui.help = u'<http://aheui.github.io/specification.ko/>'
 
-def rot13(code):
-    import string
-    table = string.maketrans( 
-        "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz", 
-        "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm")
-    try:
-        return string.translate(code.encode('utf-8'), table).decode('utf-8'), ''
-    except:
-        return '', 'invalid roman sentence'
-rot13.name = 'rot13'
-rot13.help = '<http://ko.wikipedia.org/wiki/ROT13>'
+def print_(code, *args):
+    return code, ''
+print_.name = 'print'
 
 def c99(code):
     if '#include' in code:
@@ -106,6 +101,37 @@ def rust(code):
 rust.name = 'rust'
 rust.help = '<http://www.rust-lang.org/>'
 
+def save(code):
+    try:
+        key, value = code.split(' ', 1)
+    except ValueError:
+        return '', 'format: <key> <data>'
+    rc.hset('slackcode', key, value)
+    return 'saved', ''
+save.name = 'database'
+save.help = 'save a sentence for the given key'
+
+def load(code):
+    value = rc.hget('slackcode', code)
+    if not value:
+        return '', '`{}` is empty'.format(code)
+    return value, ''
+load.name = 'database'
+load.help = 'load a sentence for the given key'
+
+def call(code):
+    try:
+        key, arg = code.split(' ', 1)
+    except ValueError:
+        key, arg = code, ''
+    value = rc.hget('slackcode', key)
+    if not value:
+        return '', '`{}` is empty'.format(key)
+    _, out, err = dispatch(value, arg)
+    return out, err
+call.name = 'database'
+call.help = 'What you see is what it does'
+
 def help(code):
     try:
         machine = machines[code]
@@ -131,7 +157,6 @@ machines = {
 'ruby': ruby,
 'aheui': aheui,
 u'아희': aheui,
-'rot13': rot13,
 'c': c99,
 'c99': c99,
 'c++': cpp11,
@@ -141,20 +166,28 @@ u'아희': aheui,
 'rust': rust,
 'langhelp': help,
 u'언어도움': help,
+'save': save,
+u'쓰기': save,
+'load': load,
+u'읽기': load,
+'call': call,
+u'실행': call,
+'print': print_,
 }
 help.help = u'언어 이름을 넣으면 약간의 설명이... ' + ' '.join(sorted(machines.keys()))
 
-def dispatch(text):
+def dispatch(text, *args):
     try:
         tag, code = text.split(' ', 1)
-        tag = tag[1:]
     except ValueError:
-        tag = None
+        tag = text
         code = ''
-    if not code.strip():
-        tag = None
+    tag = tag[1:]
+    if tag and tag[0] == '!':
+        out, err = call(' '.join([tag[1:], code]))
+        return call.name, out, err
     machine = machines.get(tag, error)
-    out, err = machine(code)
+    out, err = machine(code, *args)
     try:
         name = machine.name
     except:
