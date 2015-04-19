@@ -31,7 +31,7 @@ def run(*args, **kwargs):
     if 'timeout' in kwargs:
         timeout = kwargs['timeout']
     else:
-        timeout = 5
+        timeout = 8
     process = Process(*args)
     return process.run(timeout=timeout)
 
@@ -40,7 +40,7 @@ def error(code, *args):
 error.name = 'error'
 
 def python2(code, *args):
-    preset = 'import time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,sets,weakref,types,new,copy,pprint,repr,numbers,cmath,decimal,fractions,random,itertools,functools,operator,csv,hashlib,hmac,md5,sha,io,json,urllib,urllib2,httplib,gettext,locale,requests,sys; argc=len(sys.argv); argv=sys.argv; del sys;\n'
+    preset = '#coding: utf-8\nimport time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,sets,weakref,types,new,copy,pprint,repr,numbers,cmath,decimal,fractions,random,itertools,functools,operator,csv,hashlib,hmac,md5,sha,io,json,urllib,urllib2,httplib,gettext,locale,requests,sys,bs4; argc=len(sys.argv); argv=sys.argv; del sys;\n'
     if 'import' in code or 'exec' in code:
         return '', 'rejected'
     return run('python', '-c', preset + code, *args)
@@ -107,14 +107,14 @@ def save(code):
     except ValueError:
         return '', 'format: <key> <data>'
     rc.hset('slackcode', key, value)
-    return 'saved', ''
+    return '', ''
 save.name = 'database'
 save.help = 'save a sentence for the given key'
 
 def load(code):
     value = rc.hget('slackcode', code)
     if not value:
-        return '', '`{}` is empty'.format(code)
+        return '', u'`{}` is empty'.format(code)
     return value, ''
 load.name = 'database'
 load.help = 'load a sentence for the given key'
@@ -126,8 +126,10 @@ def call(code):
         key, arg = code, ''
     value = rc.hget('slackcode', key)
     if not value:
-        return '', '`{}` is empty'.format(key)
-    _, out, err = dispatch(value, arg)
+        return '', u'`{}` is empty'.format(key)
+    name, out, err = dispatch(value, arg)
+    if name == 'error':
+        return '', u'`{}` is not callable'.format(key)
     return out, err
 call.name = 'database'
 call.help = 'What you see is what it does'
@@ -185,6 +187,8 @@ def dispatch(text, *args):
     tag = tag[1:]
     if tag and tag[0] == '!':
         out, err = call(' '.join([tag[1:], code]))
+        if not out and err.endswith(' is empty') or err.endswith(' is not callable'):
+            return call.name, '', ''
         return call.name, out, err
     machine = machines.get(tag, error)
     out, err = machine(code, *args)
