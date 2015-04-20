@@ -1,6 +1,7 @@
 
 # coding: utf-8
 import os
+import re
 import subprocess
 import threading
 import codegen
@@ -73,6 +74,13 @@ aheui.help = u'<http://aheui.github.io/specification.ko/>'
 def print_(code, *args):
     return code, ''
 print_.name = 'print'
+
+def calc(code, *args):
+    m = re.match('[0-9 */\-+]+', code)
+    if not m:
+        return '', 'too few argument'
+    return run('python', '-c', 'print ' + m.group(0), timeout=1)
+calc.name = 'calc'
 
 def c99(code, *args):
     if '#include' in code:
@@ -179,6 +187,8 @@ u'읽기': load,
 'call': call,
 u'실행': call,
 'print': print_,
+'calc': calc,
+u'계산': calc,
 }
 help.help = u'언어 이름을 넣으면 약간의 설명이... ' + ' '.join(sorted(machines.keys()))
 
