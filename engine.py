@@ -13,10 +13,10 @@ class Process(object):
         self.args = args
         self.result = '', ''
 
-    def run(self, timeout=5):
+    def run(self, timeout=5, stdin=None):
         def target():
-            self.process = subprocess.Popen(self.args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.result = self.process.communicate()
+            self.process = subprocess.Popen(self.args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.result = self.process.communicate(input=stdin)
 
         thread = threading.Thread(target=target)
         thread.start()
@@ -28,12 +28,12 @@ class Process(object):
         return self.result
 
 def run(*args, **kwargs):
-    if 'timeout' in kwargs:
-        timeout = kwargs['timeout']
-    else:
-        timeout = 8
+    timeout = kwargs.get('timeout', 5)
+    stdin = kwargs.get('stdin', None)
+    if stdin:
+        stdin = stdin.encode('utf-8')
     process = Process(*args)
-    return process.run(timeout=timeout)
+    return process.run(timeout=timeout, stdin=stdin)
 
 def error(code, *args):
     return '', ''
@@ -61,8 +61,12 @@ def ruby(code, *args):
 ruby.name = 'ruby1.9'
 ruby.help = '<https://www.ruby-lang.org/ko/documentation/>'
 
-def aheui(code):
-    return run('aheui', '-c', code, timeout=2)
+def aheui(code, *args):
+    if len(args) > 0:
+        stdin = args[0]
+    else:
+        stdin = ''
+    return run('aheui', '-c', code, timeout=2, stdin=stdin)
 aheui.name = u'아희'
 aheui.help = u'<http://aheui.github.io/specification.ko/>'
 
@@ -70,34 +74,34 @@ def print_(code, *args):
     return code, ''
 print_.name = 'print'
 
-def c99(code):
+def c99(code, *args):
     if '#include' in code:
         return '', 'rejected'
-    codegen.render_c(code)
-    out, err = run('clang', '-std=c99', '-o', 'tmp/c.out', 'tmp.c')
+    fullcode = codegen.render_c(code)
+    out, err = run('clang', '-std=c99', '-o', 'tmp/c.out', '-x', 'c', '-', stdin=fullcode)
     if err:
         return out, err
-    return run('tmp/c.out')
+    return run('tmp/c.out', *args)
 c99.name = 'c99'
 c99.help = '<http://ko.wikipedia.org/wiki/C99>'
 
-def cpp11(code):
+def cpp11(code, *args):
     if '#include' in code:
         return '', 'rejected'
-    codegen.render_cc(code)
-    out, err = run('clang++', '-std=c++1y', '-o', 'tmp/cc.out', 'tmp.cc')
+    fullcode = codegen.render_cc(code)
+    out, err = run('clang++', '-std=c++1y', '-o', 'tmp/cc.out', '-x', 'c++', '-', stdin=fullcode)
     if err:
         return out, err
-    return run('tmp/cc.out')
+    return run('tmp/cc.out', *args)
 cpp11.name = 'c++11'
 cpp11.help = '<http://ko.wikipedia.org/wiki/C%2B%2B11>'
 
-def rust(code):
-    codegen.render_rust(code)
-    out, err = run('rustc', '-o', 'tmp/rs.out', 'tmp.rs')
+def rust(code, *args):
+    fullcode = codegen.render_rust(code)
+    out, err = run('rustc', '-o', 'tmp/rs.out', '-', stdin=fullcode)
     if err:
         return out, err
-    return run('tmp/rs.out')
+    return run('tmp/rs.out', *args)
 rust.name = 'rust'
 rust.help = '<http://www.rust-lang.org/>'
 
@@ -127,7 +131,7 @@ def call(code):
     value = rc.hget('slackcode', key)
     if not value:
         return '', u'`{}` is empty'.format(key)
-    name, out, err = dispatch(value, arg)
+    name, out, err = dispatch(value.decode('utf-8'), arg)
     if name == 'error':
         return '', u'`{}` is not callable'.format(key)
     return out, err
