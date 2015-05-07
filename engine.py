@@ -44,7 +44,7 @@ def python2(code, *args):
     preset = '#coding: utf-8\nimport time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,sets,weakref,types,new,copy,pprint,repr,numbers,cmath,decimal,fractions,random,itertools,functools,operator,csv,hashlib,hmac,md5,sha,io,json,urllib,urllib2,httplib,gettext,locale,requests,sys,bs4; argc=len(sys.argv); argv=sys.argv; del sys;\n'
     if 'import' in code or 'exec' in code:
         return '', 'rejected'
-    return run('python', '-c', preset + code, *args)
+    return run('python', '-c', preset + code, *args, timeout=10)
 python2.name = 'python2.7'
 python2.help = '<https://docs.python.org/2/>'
 python = python2
@@ -113,7 +113,7 @@ def rust(code, *args):
 rust.name = 'rust'
 rust.help = '<http://www.rust-lang.org/>'
 
-def save(code):
+def save(code, *args):
     try:
         key, value = code.split(' ', 1)
     except ValueError:
@@ -131,7 +131,7 @@ def load(code):
 load.name = 'database'
 load.help = 'load a sentence for the given key'
 
-def call(code):
+def call(code, *args):
     try:
         key, arg = code.split(' ', 1)
     except ValueError:
@@ -139,6 +139,51 @@ def call(code):
     value = rc.hget('slackcode', key)
     if not value:
         return '', u'`{}` is empty'.format(key)
+    if arg:
+        """Runtime variable system:
+
+        {{n}}: nth variable.
+        {{n:m}}: nth to mth variable. if n is not given, n is 0. if m is not given, m is len(xargs)
+        """
+        xargs = arg.encode('utf-8').split(' ')
+        p = 0
+        gen = []
+        while p < len(value):
+            if value[p:p + 2] != '{{':
+                gen.append(value[p])
+                p += 1
+                continue
+            p += 2
+            px = p
+            while px < len(value):
+                if value[px:px + 2] == '}}':
+                    break
+                px += 1
+            else:
+                gen.append(value[p:px])
+                p = px
+                continue
+            index = value[p:px]
+            if ':' in index:
+                start, end = index.split(':')
+                if start == '':
+                    start = '0'
+                if end == '':
+                    end = str(len(xargs))
+                try:
+                    start, end = int(start), int(end)
+                except ValueError:
+                    return '', u'`{{{{{}}}}}` is not correct variable'.format(index)
+                gen.append(' '.join(xargs[start:end]))
+            else:
+                try:
+                    idx = int(index)
+                except ValueError:
+                    return '', u'`{{{{{}}}}}` is not correct variable'.format(index)
+                gen.append(xargs[idx])
+            p = px + 2
+        value = ''.join(gen)
+
     name, out, err = dispatch(value.decode('utf-8'), arg)
     if name == 'error':
         return '', u'`{}` is not callable'.format(key)

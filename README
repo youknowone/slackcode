@@ -1,4 +1,4 @@
-!save rot13 !py print string.translate(argv[1], string.maketrans("ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz", "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm"))
+!save rot13 !py print string.translate('''{{:}}''', string.maketrans("ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz", "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm"))
 
 > !!rot13 Hello, World!
 < Uryyb, Jbeyq!
