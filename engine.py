@@ -76,10 +76,11 @@ def print_(code, *args):
 print_.name = 'print'
 
 def calc(code, *args):
-    m = re.match('[0-9 */\-+]+', code)
+    m = re.match('[0-9 */\-+\(\)epi\^]+', code)
     if not m:
         return '', 'too few argument'
-    return run('python', '-c', 'print ' + m.group(0), timeout=1)
+    expr = m.group(0).replace('^', ' ** ')
+    return run('python', '-c', 'from math import e, pi; print ' + expr, timeout=1)
 calc.name = 'calc'
 
 def c99(code, *args):
