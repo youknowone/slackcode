@@ -76,7 +76,7 @@ def print_(code, *args):
 print_.name = 'print'
 
 def calc(code, *args):
-    m = re.match('[0-9 */\-+\(\)epi\^]+', code)
+    m = re.match('[0-9 */\-+\(\)epi\^\.]+', code)
     if not m:
         return '', 'too few argument'
     expr = m.group(0).replace('^', ' ** ')
@@ -247,8 +247,12 @@ def dispatch(text, *args):
     tag = tag[1:]
     if tag and tag[0] == '!':
         out, err = call(' '.join([tag[1:], code]))
-        if not out and err.endswith(' is empty') or err.endswith(' is not callable'):
-            return call.name, '', ''
+        if not out:
+            if err.endswith(' is empty'):
+                return call.name, '', ''
+            elif err.endswith(' is not callable'):
+                out, err = load(tag[1:])
+                return call.name, out, err
         return call.name, out, err
     machine = machines.get(tag, error)
     out, err = machine(code, *args)

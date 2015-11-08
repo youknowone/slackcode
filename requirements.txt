@@ -2,7 +2,6 @@ flask
 flask-actions
 requests
 redis
+beautifulsoup4
 pytest
 
-
-beautifulsoup4
