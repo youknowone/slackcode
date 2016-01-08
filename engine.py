@@ -255,6 +255,13 @@ def dispatch(text, *args):
                 return call.name, out, err
         return call.name, out, err
     machine = machines.get(tag, error)
+    if machine == error:
+        out, err = call(' '.join([tag, code]))
+        if out:
+            return call.name, out, err
+        elif err.endswith(' is not callable'):
+            out, err = load(tag)
+            return call.name, out, err
     out, err = machine(code, *args)
     try:
         name = machine.name
