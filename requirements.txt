@@ -1,5 +1,5 @@
 flask
-flask-actions
+flask-script
 requests
 redis
 beautifulsoup4
