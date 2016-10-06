@@ -1,6 +1,5 @@
 
 # coding: utf-8
-import os
 import re
 import subprocess
 import threading
@@ -9,7 +8,8 @@ import codegen
 import redis
 rc = redis.StrictRedis()
 
-DB_KEY = 'slackcode'
+DB_KEY = 'slackcode:{}'.format
+
 
 class Process(object):
     def __init__(self, *args):
@@ -30,6 +30,7 @@ class Process(object):
             return '', 'timeout'
         return self.result
 
+
 def run(*args, **kwargs):
     timeout = kwargs.get('timeout', 5)
     stdin = kwargs.get('stdin', None)
@@ -38,9 +39,11 @@ def run(*args, **kwargs):
     process = Process(*args)
     return process.run(timeout=timeout, stdin=stdin)
 
+
 def error(code, *args):
     return '', ''
 error.name = 'error'
+
 
 def python2(code, *args):
     preset = '#coding: utf-8\nimport time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,sets,weakref,types,new,copy,pprint,repr,numbers,cmath,decimal,fractions,random,itertools,functools,operator,csv,hashlib,hmac,md5,sha,io,json,urllib,urllib2,httplib,gettext,locale,requests,sys; argc=len(sys.argv); argv=sys.argv; del sys;\n'
@@ -51,6 +54,7 @@ python2.name = 'python2.7'
 python2.help = '<https://docs.python.org/2/>'
 python = python2
 
+
 def python3(code, *args):
     preset = 'import time,math,datetime,re,string,struct,difflib,unicodedata,calendar,collections,heapq,bisect,array,weakref,types,copy,pprint,reprlib,enum,numbers,cmath,decimal,fractions,random,statistics,itertools,functools,operator,csv,hashlib,hmac,io,json,urllib,http,gettext,locale;\n'
     if 'import' in code or 'exec' in code:
@@ -59,10 +63,12 @@ def python3(code, *args):
 python3.name = 'python3.4'
 python3.help = '<https://docs.python.org/3/>'
 
+
 def ruby(code, *args):
     return run('ruby', '-e', code, *args)
 ruby.name = 'ruby1.9'
 ruby.help = '<https://www.ruby-lang.org/ko/documentation/>'
+
 
 def aheui(code, *args):
     if len(args) > 0:
@@ -73,17 +79,20 @@ def aheui(code, *args):
 aheui.name = '아희'
 aheui.help = '<http://aheui.github.io/specification.ko/>'
 
+
 def print_(code, *args):
     return code, ''
 print_.name = 'print'
+
 
 def calc(code, *args):
     m = re.match('[0-9 */\-+\(\)epi\^\.]+', code)
     if not m:
         return '', 'too few argument'
     expr = m.group(0).replace('^', ' ** ')
-    return run('python', '-c', 'from math import e, pi; print ' + expr, timeout=1)
+    return run('python', '-c', 'from math import e, pi; print({})'.format(expr), timeout=1)
 calc.name = 'calc'
+
 
 def c99(code, *args):
     if '#include' in code:
@@ -96,6 +105,7 @@ def c99(code, *args):
 c99.name = 'c99'
 c99.help = '<http://ko.wikipedia.org/wiki/C99>'
 
+
 def cpp11(code, *args):
     if '#include' in code:
         return '', 'rejected'
@@ -107,6 +117,7 @@ def cpp11(code, *args):
 cpp11.name = 'c++11'
 cpp11.help = '<http://ko.wikipedia.org/wiki/C%2B%2B11>'
 
+
 def rust(code, *args):
     fullcode = codegen.render_rust(code)
     out, err = run('rustc', '-o', 'tmp/rs.out', '-', stdin=fullcode)
@@ -116,23 +127,28 @@ def rust(code, *args):
 rust.name = 'rust'
 rust.help = '<http://www.rust-lang.org/>'
 
-def save(code, *args):
+
+def save(code, *args, **kwargs):
+    team = kwargs.get('team', None)
     try:
         key, value = code.split(' ', 1)
     except ValueError:
         return '', 'format: <key> <data>'
-    rc.hset(DB_KEY, key, value)
+    rc.hset(DB_KEY(team), key, value)
     return '', ''
 save.name = 'database'
 save.help = 'save a sentence for the given key'
 
-def load(code):
-    value = rc.hget(DB_KEY, code)
+
+def load(code, **kwargs):
+    team = kwargs.get('team', None)
+    value = rc.hget(DB_KEY(team), code)
     if not value:
         return '', '`{}` is empty'.format(code)
     return value.decode('utf-8'), ''
 load.name = 'database'
 load.help = 'load a sentence for the given key'
+
 
 def _render_args(value, arg):
     """Runtime variable system:
@@ -180,12 +196,16 @@ def _render_args(value, arg):
     value = ''.join(gen)
     return value
 
-def call(code, *args):
+
+def call(code, *args, **kwargs):
+    team = kwargs.get('team', None)
     try:
         key, arg = code.split(' ', 1)
     except ValueError:
         key, arg = code, ''
-    value = rc.hget(DB_KEY, key)
+    if not key:
+        return '', 'key is empty'
+    value = rc.hget(DB_KEY(team), key)
     if not value:
         return '', '`{}` is empty'.format(key)
     value = value.decode('utf-8')
@@ -198,6 +218,7 @@ def call(code, *args):
     return out, err
 call.name = 'database'
 call.help = 'What you see is what it does'
+
 
 def help(code):
     try:
@@ -242,10 +263,13 @@ machines = {
 'print': print_,
 'calc': calc,
 '계산': calc,
-}
+}  # noqa
 help.help = '언어 이름을 넣으면 약간의 설명이... ' + ' '.join(sorted(machines.keys()))
 
-def dispatch(text, *args):
+
+def dispatch(text, *args, **kwargs):
+    print('dispatch:', text, args, kwargs)
+    team = kwargs.get('team', None)
     try:
         tag, code = text.split(' ', 1)
     except ValueError:
@@ -253,26 +277,28 @@ def dispatch(text, *args):
         code = ''
     tag = tag[1:]
     if tag and tag[0] == '!':
-        out, err = call(' '.join([tag[1:], code]))
+        out, err = call(' '.join([tag[1:], code]), team=team)
         if not out:
             if err.endswith(' is empty'):
-                return call.name, '', ''
+                return call.name, out, err
             elif err.endswith(' is not callable'):
-                out, err = load(tag[1:])
+                out, err = load(tag[1:], team=team)
                 return call.name, out, err
         return call.name, out, err
     machine = machines.get(tag, error)
     if machine == error:
-        out, err = call(' '.join([tag, code]))
+        out, err = call(' '.join([tag, code]), team=team)
         if out:
             return call.name, out, err
         elif err.endswith(' is not callable'):
-            out, err = load(tag)
+            out, err = load(tag, team=team)
             return call.name, out, err
-    out, err = machine(code, *args)
+    if machine in [save, load, call]:
+        out, err = machine(code, *args, team=team)
+    else:
+        out, err = machine(code, *args)
     try:
         name = machine.name
     except:
         name = tag
     return name, out, err
-

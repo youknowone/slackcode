@@ -2,7 +2,6 @@
 # coding: utf-8
 import html
 import json
-import redis
 import traceback
 import engine
 from flask import Flask, request
@@ -11,6 +10,7 @@ from settings import *
 
 app = Flask(__name__)
 
+
 @app.route('/hook', methods=('POST',))
 def hook():
     """
@@ -18,10 +18,12 @@ def hook():
     """
     try:
         print(request.form.get('user', None))
+        team = request.form.get('team_domain', 'NOTEAM')
+        # print(team)
         text = request.form.get('text', None)
         text = html.unescape(text)
         if text:
-            name, out, err = engine.dispatch(text)
+            name, out, err = engine.dispatch(text, team=team)
             outtext = ''
             if out.strip():
                 outtext += '```' + out + '```'
