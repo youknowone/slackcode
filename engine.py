@@ -98,7 +98,7 @@ def c99(code, *args):
     if '#include' in code:
         return '', 'rejected'
     fullcode = codegen.render_c(code)
-    out, err = run('clang', '-std=c99', '-o', 'tmp/c.out', '-x', 'c', '-', stdin=fullcode)
+    out, err = run('clang-3.5', '-std=c99', '-o', 'tmp/c.out', '-x', 'c', '-', stdin=fullcode)
     if err:
         return out, err
     return run('tmp/c.out', *args)
@@ -110,7 +110,7 @@ def cpp11(code, *args):
     if '#include' in code:
         return '', 'rejected'
     fullcode = codegen.render_cc(code)
-    out, err = run('clang++', '-std=c++1y', '-o', 'tmp/cc.out', '-x', 'c++', '-', stdin=fullcode)
+    out, err = run('clang++-3.5', '-std=c++1y', '-o', 'tmp/cc.out', '-x', 'c++', '-', stdin=fullcode)
     if err:
         return out, err
     return run('tmp/cc.out', *args)
@@ -235,6 +235,7 @@ def help(code):
         help = '도움말이 없습니다.'
     return name + ': ' + help, ''
 help.name = '도움말'
+
 machines = {
 'py': python,
 'py2': python2,
@@ -277,13 +278,16 @@ def dispatch(text, *args, **kwargs):
         code = ''
     tag = tag[1:]
     if tag and tag[0] == '!':
-        out, err = call(' '.join([tag[1:], code]), team=team)
-        if not out:
+        tag = tag[1:]
+        out, err = call(' '.join([tag, code]), team=team)
+        if not out and tag:
             if err.endswith(' is empty'):
                 return call.name, out, err
             elif err.endswith(' is not callable'):
-                out, err = load(tag[1:], team=team)
+                out, err = load(tag, team=team)
                 return call.name, out, err
+        elif not out:
+            return call.name, out, ''
         return call.name, out, err
     machine = machines.get(tag, error)
     if machine == error:
